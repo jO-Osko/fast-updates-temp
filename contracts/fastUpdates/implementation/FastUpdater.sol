@@ -10,6 +10,7 @@ import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../protocol/interface/IIVoterRegistry.sol";
 import "../interface/IIFastUpdater.sol";
 import "../lib/Bn256.sol";
+import "../lib/FixedPointArithmetic.sol" as FPA;
 import "../interface/IIFastUpdateIncentiveManager.sol";
 import { SortitionState, verifySortitionCredential, verifySignature } from "../lib/Sortition.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -278,7 +279,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, signature.v, signature.r, signature.s);
         require(signingPolicyAddress != address(0), "ECDSA: invalid signature");
 
-        (Bn256.G1Point memory key, uint256 weight) = _providerData(signingPolicyAddress, rewardEpochId);
+        (G1Point memory key, uint256 weight) = _providerData(signingPolicyAddress, rewardEpochId);
         SortitionState memory sortitionState = SortitionState({
             baseSeed: flareSystemsManager.getSeed(rewardEpochId),
             blockNumber: _updates.sortitionBlock,
@@ -569,9 +570,9 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     {
         (uint256 signature, uint256 rx, uint256 ry) = abi.decode(_verificationData, (uint256, uint256, uint256));
 
-        Bn256.G1Point memory pk = Bn256.G1Point(uint256(_part1), uint256(_part2));
+        G1Point memory pk = G1Point(uint256(_part1), uint256(_part2));
         require(Bn256.isG1PointOnCurve(pk));
-        Bn256.G1Point memory r = Bn256.G1Point(rx, ry);
+        G1Point memory r = G1Point(rx, ry);
         require(Bn256.isG1PointOnCurve(r));
         verifySignature(pk, sha256(abi.encodePacked(_voter)), signature, r);
     }
@@ -911,12 +912,12 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      */
     function _providerData(address _signingPolicyAddress, uint256 _rewardEpochId)
         internal view
-        returns (Bn256.G1Point memory _key, uint256 _weight)
+        returns (G1Point memory _key, uint256 _weight)
     {
         (bytes32 pk1, bytes32 pk2, uint16 normalizedWeight, uint16 normalisedWeightsSum) =
             voterRegistry.getPublicKeyAndNormalisedWeight(_rewardEpochId, _signingPolicyAddress);
         require(pk1 != bytes32(0) || pk2 != bytes32(0), "Public key not registered");
-        _key = Bn256.G1Point(uint256(pk1), uint256(pk2));
+        _key = G1Point(uint256(pk1), uint256(pk2));
         _weight = SafePct.mulDivRoundUp(normalizedWeight, 1 << VIRTUAL_PROVIDER_BITS, normalisedWeightsSum);
     }
 
